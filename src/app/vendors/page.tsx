@@ -56,10 +56,12 @@ function DocSlotRow({
   label,
   requirement,
   doc,
+  onViewPdf,
 }: {
   label: string;
   requirement: 'required' | 'optional' | 'recommended';
   doc?: VendorDetail['kycDocument'] | null;
+  onViewPdf?: (url: string) => void;
 }) {
   const formatBytes = (b: number) => {
     if (!b) return '';
@@ -99,32 +101,29 @@ function DocSlotRow({
         )}
       </div>
       {has && (
-        <a
-          href={doc!.url}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={() => onViewPdf?.(doc!.url)}
           className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity shrink-0"
         >
           <ExternalLink size={13} />
-          Open
-        </a>
+          View PDF
+        </button>
       )}
     </div>
   );
 }
 
 // ── Full KYC section: 4 slots shown together ──────────────────────────
-function VendorKycSection({ vendor }: { vendor: VendorDetail }) {
+function VendorKycSection({ vendor, onViewPdf }: { vendor: VendorDetail; onViewPdf?: (url: string) => void }) {
   const docs = vendor.kycDocuments || {};
-  // Fallback: if a vendor only has the legacy single kycDocument, use it as PAN.
   const panDoc = docs.pan && docs.pan.url ? docs.pan : vendor.kycDocument || null;
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">KYC Documents</p>
-      <DocSlotRow label="PAN Card" requirement="required" doc={panDoc} />
-      <DocSlotRow label="Aadhaar Card" requirement="optional" doc={docs.aadhaar} />
-      <DocSlotRow label="Bank Proof" requirement="required" doc={docs.bankProof} />
-      <DocSlotRow label="GST / Business License" requirement="recommended" doc={docs.gst} />
+      <DocSlotRow label="PAN Card" requirement="required" doc={panDoc} onViewPdf={onViewPdf} />
+      <DocSlotRow label="Aadhaar Card" requirement="optional" doc={docs.aadhaar} onViewPdf={onViewPdf} />
+      <DocSlotRow label="Bank Proof" requirement="required" doc={docs.bankProof} onViewPdf={onViewPdf} />
+      <DocSlotRow label="GST / Business License" requirement="recommended" doc={docs.gst} onViewPdf={onViewPdf} />
     </div>
   );
 }
@@ -170,6 +169,7 @@ export default function VendorsPage() {
   const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>({ type: null, vendor: null });
   const [modalInput, setModalInput] = useState('');
+  const [pdfPreview, setPdfPreview] = useState<string | null>(null);
 
   const tabCounts = data ? {
     all: data.total,
@@ -340,7 +340,7 @@ export default function VendorsPage() {
                 </div>
               )}
 
-              <VendorKycSection vendor={vendor} />
+              <VendorKycSection vendor={vendor} onViewPdf={setPdfPreview} />
 
               {vendor.fraudNotes && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200">
@@ -366,7 +366,7 @@ export default function VendorsPage() {
                 {type === 'suspend' && 'Add notes about why this vendor is being suspended.'}
                 {type === 'fraud' && 'Describe the fraudulent activity or concern.'}
               </p>
-              {type === 'reject' && <VendorKycSection vendor={vendor} />}
+              {type === 'reject' && <VendorKycSection vendor={vendor} onViewPdf={setPdfPreview} />}
               <textarea
                 value={modalInput}
                 onChange={e => setModalInput(e.target.value)}
@@ -423,7 +423,7 @@ export default function VendorsPage() {
               <p className="text-sm text-muted-foreground">
                 Approve <strong>{vendor.name}</strong> ({vendor.businessName})? They will be able to log in and manage their equipment.
               </p>
-              <VendorKycSection vendor={vendor} />
+              <VendorKycSection vendor={vendor} onViewPdf={setPdfPreview} />
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setModal({ type: null, vendor: null })}>Cancel</Button>
                 <Button className="flex-1" loading={!!mutatingId}
@@ -438,8 +438,52 @@ export default function VendorsPage() {
     );
   };
 
+  // PDF Preview Modal
+  const renderPdfPreview = () => {
+    if (!pdfPreview) return null;
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="w-full max-w-4xl h-[90vh] bg-card rounded-2xl border border-border overflow-hidden flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <h3 className="text-lg font-bold text-foreground">Document Preview</h3>
+            <button
+              onClick={() => setPdfPreview(null)}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+            >
+              <X size={20} className="text-muted-foreground" />
+            </button>
+          </div>
+          <div className="flex-1 bg-white">
+            <iframe
+              src={pdfPreview}
+              className="w-full h-full border-0"
+              title="PDF Preview"
+            />
+          </div>
+          <div className="p-3 border-t border-border flex gap-2">
+            <a
+              href={pdfPreview}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+            >
+              <ExternalLink size={16} />
+              Open in New Tab
+            </a>
+            <button
+              onClick={() => setPdfPreview(null)}
+              className="h-10 px-6 rounded-lg bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="p-6 space-y-6 animate-fade-in-up">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Vendor Management</h1>
