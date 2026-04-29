@@ -56,12 +56,12 @@ function DocSlotRow({
   label,
   requirement,
   doc,
-  onViewPdf,
+  vendorId,
 }: {
   label: string;
   requirement: 'required' | 'optional' | 'recommended';
   doc?: VendorDetail['kycDocument'] | null;
-  onViewPdf?: (url: string) => void;
+  vendorId: string;
 }) {
   const formatBytes = (b: number) => {
     if (!b) return '';
@@ -101,29 +101,29 @@ function DocSlotRow({
         )}
       </div>
       {has && (
-        <button
-          onClick={() => onViewPdf?.(doc!.url)}
+        <a
+          href={`/vendors/${vendorId}/documents`}
           className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity shrink-0"
         >
           <ExternalLink size={13} />
-          View PDF
-        </button>
+          View All Docs
+        </a>
       )}
     </div>
   );
 }
 
 // ── Full KYC section: 4 slots shown together ──────────────────────────
-function VendorKycSection({ vendor, onViewPdf }: { vendor: VendorDetail; onViewPdf?: (url: string) => void }) {
+function VendorKycSection({ vendor }: { vendor: VendorDetail }) {
   const docs = vendor.kycDocuments || {};
   const panDoc = docs.pan && docs.pan.url ? docs.pan : vendor.kycDocument || null;
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">KYC Documents</p>
-      <DocSlotRow label="PAN Card" requirement="required" doc={panDoc} onViewPdf={onViewPdf} />
-      <DocSlotRow label="Aadhaar Card" requirement="optional" doc={docs.aadhaar} onViewPdf={onViewPdf} />
-      <DocSlotRow label="Bank Proof" requirement="required" doc={docs.bankProof} onViewPdf={onViewPdf} />
-      <DocSlotRow label="GST / Business License" requirement="recommended" doc={docs.gst} onViewPdf={onViewPdf} />
+      <DocSlotRow label="PAN Card" requirement="required" doc={panDoc} vendorId={vendor.id} />
+      <DocSlotRow label="Aadhaar Card" requirement="optional" doc={docs.aadhaar} vendorId={vendor.id} />
+      <DocSlotRow label="Bank Proof" requirement="required" doc={docs.bankProof} vendorId={vendor.id} />
+      <DocSlotRow label="GST / Business License" requirement="recommended" doc={docs.gst} vendorId={vendor.id} />
     </div>
   );
 }
@@ -169,7 +169,6 @@ export default function VendorsPage() {
   const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>({ type: null, vendor: null });
   const [modalInput, setModalInput] = useState('');
-  const [pdfPreview, setPdfPreview] = useState<string | null>(null);
 
   const tabCounts = data ? {
     all: data.total,
@@ -191,7 +190,7 @@ export default function VendorsPage() {
     setLoading(true);
     setErr(null);
     try {
-      let params: Record<string, string> = { pageSize: '50' };
+      const params: Record<string, string> = { pageSize: '50' };
       if (search) params.search = search;
       if (tab === 'flagged') params.featured = 'false';
       else if (tab !== 'all') {
@@ -340,7 +339,7 @@ export default function VendorsPage() {
                 </div>
               )}
 
-              <VendorKycSection vendor={vendor} onViewPdf={setPdfPreview} />
+              <VendorKycSection vendor={vendor} />
 
               {vendor.fraudNotes && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200">
@@ -366,7 +365,7 @@ export default function VendorsPage() {
                 {type === 'suspend' && 'Add notes about why this vendor is being suspended.'}
                 {type === 'fraud' && 'Describe the fraudulent activity or concern.'}
               </p>
-              {type === 'reject' && <VendorKycSection vendor={vendor} onViewPdf={setPdfPreview} />}
+              {type === 'reject' && <VendorKycSection vendor={vendor} />}
               <textarea
                 value={modalInput}
                 onChange={e => setModalInput(e.target.value)}
@@ -423,7 +422,7 @@ export default function VendorsPage() {
               <p className="text-sm text-muted-foreground">
                 Approve <strong>{vendor.name}</strong> ({vendor.businessName})? They will be able to log in and manage their equipment.
               </p>
-              <VendorKycSection vendor={vendor} onViewPdf={setPdfPreview} />
+              <VendorKycSection vendor={vendor} />
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setModal({ type: null, vendor: null })}>Cancel</Button>
                 <Button className="flex-1" loading={!!mutatingId}
@@ -434,50 +433,6 @@ export default function VendorsPage() {
             </div>
           )}
         </Card>
-      </div>
-    );
-  };
-
-  // PDF Preview Modal
-  const renderPdfPreview = () => {
-    if (!pdfPreview) return null;
-    return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-        <div className="w-full max-w-4xl h-[90vh] bg-card rounded-2xl border border-border overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h3 className="text-lg font-bold text-foreground">Document Preview</h3>
-            <button
-              onClick={() => setPdfPreview(null)}
-              className="p-2 rounded-lg hover:bg-secondary transition-colors"
-            >
-              <X size={20} className="text-muted-foreground" />
-            </button>
-          </div>
-          <div className="flex-1 bg-white">
-            <iframe
-              src={pdfPreview}
-              className="w-full h-full border-0"
-              title="PDF Preview"
-            />
-          </div>
-          <div className="p-3 border-t border-border flex gap-2">
-            <a
-              href={pdfPreview}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-            >
-              <ExternalLink size={16} />
-              Open in New Tab
-            </a>
-            <button
-              onClick={() => setPdfPreview(null)}
-              className="h-10 px-6 rounded-lg bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
       </div>
     );
   };
