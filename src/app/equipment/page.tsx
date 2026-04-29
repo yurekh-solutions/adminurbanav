@@ -17,6 +17,7 @@ export default function EquipmentPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
+  const [featuredMutatingId, setFeaturedMutatingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,6 +41,18 @@ export default function EquipmentPage() {
     const t = setTimeout(load, 300);
     return () => clearTimeout(t);
   }, [load]);
+
+  const toggleFeatured = async (eq: AdminEquipment) => {
+    setFeaturedMutatingId(eq._id);
+    try {
+      await adminApi.setEquipmentFeatured(eq._id, !(eq as any).isFeatured);
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Update failed');
+    } finally {
+      setFeaturedMutatingId(null);
+    }
+  };
 
   const toggleAvailability = async (eq: AdminEquipment) => {
     setMutatingId(eq._id);
@@ -122,20 +135,21 @@ export default function EquipmentPage() {
                 <th className="text-left px-6 py-3 font-semibold">Price/Day</th>
                 <th className="text-left px-6 py-3 font-semibold hidden sm:table-cell">Rating</th>
                 <th className="text-left px-6 py-3 font-semibold">Status</th>
+                <th className="text-left px-6 py-3 font-semibold">Featured</th>
                 <th className="text-right px-6 py-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
               {loading && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-muted-foreground">
                     <Loader2 className="animate-spin inline mr-2" size={14} /> Loading equipment…
                   </td>
                 </tr>
               )}
               {!loading && err && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-red-500">{err}</td>
+                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-red-500">{err}</td>
                 </tr>
               )}
               {!loading && !err && items.map((eq) => (
@@ -173,6 +187,20 @@ export default function EquipmentPage() {
                     </Badge>
                   </td>
                   <td className="px-6 py-3.5">
+                    <button
+                      title={(eq as any).isFeatured ? 'Unfeature' : 'Feature'}
+                      disabled={featuredMutatingId === eq._id}
+                      onClick={() => toggleFeatured(eq)}
+                      className={`p-1.5 rounded-lg transition-colors ${(eq as any).isFeatured ? 'text-amber-500 hover:bg-amber-50' : 'text-muted-foreground hover:bg-secondary hover:text-amber-500'}`}
+                    >
+                      {featuredMutatingId === eq._id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Star size={14} className={(eq as any).isFeatured ? 'fill-amber-500' : ''} />
+                      )}
+                    </button>
+                  </td>
+                  <td className="px-6 py-3.5">
                     <div className="flex items-center justify-end gap-1">
                       <button className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
                         <Eye size={14} />
@@ -200,7 +228,7 @@ export default function EquipmentPage() {
               ))}
               {!loading && !err && items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-muted-foreground">
                     No equipment matches your filters.
                   </td>
                 </tr>

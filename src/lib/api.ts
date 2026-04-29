@@ -184,6 +184,68 @@ export interface InquiryListResponse {
   pageSize: number;
 }
 
+// ── Vendor types ─────────────────────────────────────────────────────────
+export interface VendorDetail {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  businessName: string;
+  businessDescription?: string;
+  gstNumber: string;
+  panNumber: string;
+  serviceArea: { city: string; state: string; pincode: string; fullAddress: string };
+  bankDetails?: { accountNumber: string; ifsc: string; bankName: string; accountHolderName: string };
+  rating: number;
+  isVerified: boolean;
+  kycStatus: 'pending' | 'submitted' | 'approved' | 'rejected';
+  accountStatus: 'pending' | 'active' | 'suspended' | 'rejected';
+  isFeatured: boolean;
+  commissionRate: number;
+  isFraudFlagged: boolean;
+  fraudNotes?: string;
+  fraudFlaggedAt?: string;
+  kycSubmittedAt?: string;
+  kycApprovedAt?: string;
+  kycRejectedAt?: string;
+  kycRejectionReason?: string;
+  totalOrders: number;
+  totalEarnings: number;
+  equipmentCount?: number;
+  activeOrders?: number;
+  createdAt: string;
+}
+
+export interface VendorListResponse {
+  vendors: VendorDetail[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// ── Dispute types ─────────────────────────────────────────────────────────
+export interface DisputeDetail {
+  id: string;
+  orderId: string;
+  buyer: { id: string; name: string; email: string; phone?: string } | null;
+  supplier: { id: string; name: string; email: string; phone?: string; businessName?: string } | null;
+  equipment: { id: string; name: string; image?: string } | null;
+  totalAmount: number;
+  disputeFlag: boolean;
+  disputeStatus: 'open' | 'resolved';
+  disputeReason: string;
+  resolution: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DisputeListResponse {
+  disputes: DisputeDetail[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // ── API surface ───────────────────────────────────────────────────────────
 export const adminApi = {
   // stats
@@ -214,6 +276,11 @@ export const adminApi = {
       method: 'PUT',
       body: JSON.stringify({ availability }),
     }),
+  setEquipmentFeatured: (id: string, featured: boolean) =>
+    request<AdminEquipment>(`/equipment/${id}/featured`, {
+      method: 'PUT',
+      body: JSON.stringify({ featured }),
+    }),
 
   // orders
   orders: (params?: QueryParams) =>
@@ -222,4 +289,47 @@ export const adminApi = {
   // inquiries
   inquiries: (params?: QueryParams) =>
     request<InquiryListResponse>('/inquiries', { params }),
+
+  // vendors
+  vendors: (params?: QueryParams) =>
+    request<VendorListResponse>('/vendors', { params }),
+  getVendor: (id: string) =>
+    request<VendorDetail>(`/vendors/${id}`),
+  approveVendor: (id: string) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/approve`, { method: 'PUT' }),
+  rejectVendor: (id: string, reason: string) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/reject`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason }),
+    }),
+  suspendVendor: (id: string) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/suspend`, { method: 'PUT' }),
+  reactivateVendor: (id: string) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/reactivate`, { method: 'PUT' }),
+  updateVendorCommission: (id: string, rate: number) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/commission`, {
+      method: 'PUT',
+      body: JSON.stringify({ rate }),
+    }),
+  toggleVendorFeatured: (id: string, featured: boolean) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/featured`, {
+      method: 'PUT',
+      body: JSON.stringify({ featured }),
+    }),
+  flagVendorFraud: (id: string, notes: string) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/fraud-flag`, {
+      method: 'PUT',
+      body: JSON.stringify({ notes }),
+    }),
+  unflagVendorFraud: (id: string) =>
+    request<{ success: boolean; message: string; vendor: VendorDetail }>(`/vendors/${id}/fraud-unflag`, { method: 'PUT' }),
+
+  // disputes
+  disputes: (params?: QueryParams) =>
+    request<DisputeListResponse>('/disputes', { params }),
+  resolveDispute: (id: string, action: string, resolution?: string) =>
+    request<{ success: boolean; message: string }>(`/disputes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ action, resolution }),
+    }),
 };

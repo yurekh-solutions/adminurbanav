@@ -3,8 +3,8 @@ import './globals.css';
 import Sidebar, { Header } from '@/components/layout/Sidebar';
 
 export const metadata: Metadata = {
-  title: 'AINOS — UrbanAV Admin',
-  description: 'AI-powered AV rental marketplace administration panel',
+  title: 'UrbanAV — Admin Panel',
+  description: 'UrbanAV AV rental marketplace administration panel',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

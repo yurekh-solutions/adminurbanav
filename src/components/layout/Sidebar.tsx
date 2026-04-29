@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
@@ -12,16 +13,17 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  Zap,
   ChevronLeft,
   ChevronRight,
   Bell,
   Search,
+  Building2,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/',           label: 'Dashboard',  Icon: LayoutDashboard },
   { href: '/users',      label: 'Users',       Icon: Users },
+  { href: '/vendors',    label: 'Vendors',     Icon: Building2 },
   { href: '/equipment',  label: 'Equipment',   Icon: Package },
   { href: '/orders',     label: 'Orders',      Icon: ShoppingCart },
   { href: '/inquiries',  label: 'Inquiries',   Icon: MessageSquare },
@@ -43,13 +45,19 @@ export default function Sidebar() {
     >
       {/* ── Logo ───────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-[var(--sidebar-border)]">
-        <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0 shadow-[var(--shadow-glow)]">
-          <Zap size={18} className="text-white" fill="rgba(255,255,255,0.7)" />
+        <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 shadow-[var(--shadow-glow)]">
+          <Image
+            src="/urbanav-logo.jpg"
+            alt="UrbanAV"
+            width={32}
+            height={32}
+            className="object-cover"
+          />
         </div>
         {!collapsed && (
           <div>
-            <span className="text-white font-bold text-base tracking-wide">AINOS</span>
-            <span className="block text-[10px] text-white/60 leading-none tracking-widest uppercase">UrbanAV Admin</span>
+            <span className="text-white font-bold text-base tracking-wide">UrbanAV</span>
+            <span className="block text-[10px] text-white/60 leading-none tracking-widest uppercase">Admin Panel</span>
           </div>
         )}
       </div>
