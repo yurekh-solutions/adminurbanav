@@ -51,6 +51,84 @@ function KycDocumentBlock({ doc }: { doc?: VendorDetail['kycDocument'] | null })
   );
 }
 
+// ── One document slot row used inside the multi-doc list ──────────────────
+function DocSlotRow({
+  label,
+  requirement,
+  doc,
+}: {
+  label: string;
+  requirement: 'required' | 'optional' | 'recommended';
+  doc?: VendorDetail['kycDocument'] | null;
+}) {
+  const formatBytes = (b: number) => {
+    if (!b) return '';
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(2)} MB`;
+  };
+  const badgeCls =
+    requirement === 'required'
+      ? 'bg-red-100 text-red-700 border-red-200'
+      : requirement === 'optional'
+      ? 'bg-secondary text-muted-foreground border-border'
+      : 'bg-green-100 text-green-700 border-green-200';
+  const has = !!(doc && doc.url);
+  return (
+    <div className="p-3 rounded-xl border border-border bg-card flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${has ? 'bg-primary/15 border-primary/25 text-primary' : 'bg-secondary border-border text-muted-foreground'}`}>
+        <FileText size={16} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-semibold text-foreground">{label}</p>
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeCls}`}>
+            {requirement}
+          </span>
+        </div>
+        {has ? (
+          <>
+            <p className="text-xs text-foreground/80 truncate">{doc!.filename || 'Uploaded document'}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {(doc!.mimeType || 'application/pdf')}
+              {doc!.size ? `  ·  ${formatBytes(doc!.size)}` : ''}
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground mt-0.5">No file uploaded.</p>
+        )}
+      </div>
+      {has && (
+        <a
+          href={doc!.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity shrink-0"
+        >
+          <ExternalLink size={13} />
+          Open
+        </a>
+      )}
+    </div>
+  );
+}
+
+// ── Full KYC section: 4 slots shown together ──────────────────────────
+function VendorKycSection({ vendor }: { vendor: VendorDetail }) {
+  const docs = vendor.kycDocuments || {};
+  // Fallback: if a vendor only has the legacy single kycDocument, use it as PAN.
+  const panDoc = docs.pan && docs.pan.url ? docs.pan : vendor.kycDocument || null;
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">KYC Documents</p>
+      <DocSlotRow label="PAN Card" requirement="required" doc={panDoc} />
+      <DocSlotRow label="Aadhaar Card" requirement="optional" doc={docs.aadhaar} />
+      <DocSlotRow label="Bank Proof" requirement="required" doc={docs.bankProof} />
+      <DocSlotRow label="GST / Business License" requirement="recommended" doc={docs.gst} />
+    </div>
+  );
+}
+
 const KYC_TONE: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
   pending: 'warning',
   submitted: 'warning',
@@ -203,11 +281,11 @@ export default function VendorsPage() {
           </div>
 
           {type === 'view' && (
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3 text-sm max-h-[70vh] overflow-y-auto pr-1">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Email</p>
-                  <p className="text-foreground">{vendor.email}</p>
+                  <p className="text-foreground break-all">{vendor.email}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Phone</p>
@@ -222,21 +300,48 @@ export default function VendorsPage() {
                   <p className="text-foreground">{maskCode(vendor.panNumber)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Service Area</p>
-                  <p className="text-foreground">{vendor.serviceArea?.city || '—'}, {vendor.serviceArea?.state || '—'}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Years in Business</p>
+                  <p className="text-foreground">{vendor.yearsInBusiness ?? '—'}</p>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Commission</p>
                   <p className="text-foreground">{vendor.commissionRate}%</p>
                 </div>
+                <div className="space-y-1 col-span-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Service Area</p>
+                  <p className="text-foreground">{vendor.serviceArea?.city || '—'}, {vendor.serviceArea?.state || '—'}</p>
+                </div>
               </div>
+
+              {vendor.businessDescription && (
+                <div className="p-3 rounded-xl border border-border bg-card space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Business Description</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{vendor.businessDescription}</p>
+                </div>
+              )}
+
+              {vendor.productsOffered && vendor.productsOffered.length > 0 && (
+                <div className="p-3 rounded-xl border border-border bg-card space-y-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Products / Services Offered</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {vendor.productsOffered.map((p, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20">
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {vendor.kycRejectionReason && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200">
                   <p className="text-xs text-red-600 font-semibold">Rejection Reason</p>
                   <p className="text-sm text-red-700 mt-1">{vendor.kycRejectionReason}</p>
                 </div>
               )}
-              <KycDocumentBlock doc={vendor.kycDocument} />
+
+              <VendorKycSection vendor={vendor} />
+
               {vendor.fraudNotes && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200">
                   <p className="text-xs text-red-600 font-semibold">Fraud Notes</p>
@@ -261,7 +366,7 @@ export default function VendorsPage() {
                 {type === 'suspend' && 'Add notes about why this vendor is being suspended.'}
                 {type === 'fraud' && 'Describe the fraudulent activity or concern.'}
               </p>
-              {type === 'reject' && <KycDocumentBlock doc={vendor.kycDocument} />}
+              {type === 'reject' && <VendorKycSection vendor={vendor} />}
               <textarea
                 value={modalInput}
                 onChange={e => setModalInput(e.target.value)}
@@ -314,11 +419,11 @@ export default function VendorsPage() {
           )}
 
           {type === 'approve' && (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
               <p className="text-sm text-muted-foreground">
                 Approve <strong>{vendor.name}</strong> ({vendor.businessName})? They will be able to log in and manage their equipment.
               </p>
-              <KycDocumentBlock doc={vendor.kycDocument} />
+              <VendorKycSection vendor={vendor} />
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setModal({ type: null, vendor: null })}>Cancel</Button>
                 <Button className="flex-1" loading={!!mutatingId}

@@ -185,6 +185,14 @@ export interface InquiryListResponse {
 }
 
 // ── Vendor types ─────────────────────────────────────────────────────────
+export interface KycDocumentSlot {
+  url: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  uploadedAt?: string;
+}
+
 export interface VendorDetail {
   id: string;
   name: string;
@@ -192,6 +200,8 @@ export interface VendorDetail {
   phone: string;
   businessName: string;
   businessDescription?: string;
+  productsOffered?: string[];
+  yearsInBusiness?: number;
   gstNumber: string;
   panNumber: string;
   serviceArea: { city: string; state: string; pincode: string; fullAddress: string };
@@ -209,12 +219,12 @@ export interface VendorDetail {
   kycApprovedAt?: string;
   kycRejectedAt?: string;
   kycRejectionReason?: string;
-  kycDocument?: {
-    url: string;
-    filename: string;
-    mimeType: string;
-    size: number;
-    uploadedAt: string;
+  kycDocument?: KycDocumentSlot | null;
+  kycDocuments?: {
+    pan?: KycDocumentSlot | null;
+    aadhaar?: KycDocumentSlot | null;
+    bankProof?: KycDocumentSlot | null;
+    gst?: KycDocumentSlot | null;
   } | null;
   totalOrders: number;
   totalEarnings: number;
