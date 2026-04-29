@@ -29,6 +29,7 @@ export default function VendorDocumentsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   const loadVendor = async () => {
     setLoading(true);
@@ -444,6 +445,26 @@ export default function VendorDocumentsPage() {
             </Card>
           </div>
         )}
+        {/* Debug: raw vendor data */}
+        {showDebug && (
+          <Card className="p-4 mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-foreground">Raw KYC Data</h3>
+              <button onClick={() => setShowDebug(false)} className="text-xs text-muted-foreground hover:text-foreground">Close</button>
+            </div>
+            <pre className="text-xs bg-secondary p-3 rounded-lg overflow-auto max-h-96 whitespace-pre-wrap">
+              {JSON.stringify(vendor, null, 2)}
+            </pre>
+          </Card>
+        )}
+
+        {/* Debug toggle button */}
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="fixed bottom-4 right-4 px-3 py-2 bg-secondary text-xs text-muted-foreground rounded-lg hover:bg-secondary/80"
+        >
+          {showDebug ? 'Hide Debug' : 'Show Debug'}
+        </button>
       </div>
     </div>
   );
