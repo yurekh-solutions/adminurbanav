@@ -3,11 +3,53 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   Search, CheckCircle, XCircle, Ban, RotateCcw, Star, AlertTriangle,
   DollarSign, Loader2, X, Eye, TrendingUp, Building2, MapPin, Hash,
+  FileText, ExternalLink,
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui';
 import { adminApi, type VendorDetail, type VendorListResponse } from '@/lib/api';
 
 type Tab = 'all' | 'pending' | 'approved' | 'suspended' | 'flagged';
+
+// ── KYC document preview block ─────────────────────────────────
+function KycDocumentBlock({ doc }: { doc?: VendorDetail['kycDocument'] | null }) {
+  if (!doc || !doc.url) {
+    return (
+      <div className="p-3 rounded-xl border border-dashed border-muted-foreground/30 bg-secondary/30">
+        <p className="text-xs text-muted-foreground">No KYC document on file.</p>
+      </div>
+    );
+  }
+  const formatBytes = (b: number) => {
+    if (!b) return '';
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(2)} MB`;
+  };
+  return (
+    <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 flex items-center gap-3">
+      <div className="w-10 h-10 rounded-lg bg-primary/15 border border-primary/20 flex items-center justify-center shrink-0">
+        <FileText size={18} className="text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide">KYC Document</p>
+        <p className="text-sm font-semibold text-foreground truncate">{doc.filename || 'Uploaded document'}</p>
+        <p className="text-xs text-muted-foreground">
+          {(doc.mimeType || 'application/pdf')}
+          {doc.size ? `  ·  ${formatBytes(doc.size)}` : ''}
+        </p>
+      </div>
+      <a
+        href={doc.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity shrink-0"
+      >
+        <ExternalLink size={14} />
+        Open
+      </a>
+    </div>
+  );
+}
 
 const KYC_TONE: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
   pending: 'warning',
@@ -194,6 +236,7 @@ export default function VendorsPage() {
                   <p className="text-sm text-red-700 mt-1">{vendor.kycRejectionReason}</p>
                 </div>
               )}
+              <KycDocumentBlock doc={vendor.kycDocument} />
               {vendor.fraudNotes && (
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200">
                   <p className="text-xs text-red-600 font-semibold">Fraud Notes</p>
@@ -218,6 +261,7 @@ export default function VendorsPage() {
                 {type === 'suspend' && 'Add notes about why this vendor is being suspended.'}
                 {type === 'fraud' && 'Describe the fraudulent activity or concern.'}
               </p>
+              {type === 'reject' && <KycDocumentBlock doc={vendor.kycDocument} />}
               <textarea
                 value={modalInput}
                 onChange={e => setModalInput(e.target.value)}
@@ -274,6 +318,7 @@ export default function VendorsPage() {
               <p className="text-sm text-muted-foreground">
                 Approve <strong>{vendor.name}</strong> ({vendor.businessName})? They will be able to log in and manage their equipment.
               </p>
+              <KycDocumentBlock doc={vendor.kycDocument} />
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setModal({ type: null, vendor: null })}>Cancel</Button>
                 <Button className="flex-1" loading={!!mutatingId}

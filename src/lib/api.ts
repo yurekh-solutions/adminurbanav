@@ -209,6 +209,13 @@ export interface VendorDetail {
   kycApprovedAt?: string;
   kycRejectedAt?: string;
   kycRejectionReason?: string;
+  kycDocument?: {
+    url: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    uploadedAt: string;
+  } | null;
   totalOrders: number;
   totalEarnings: number;
   equipmentCount?: number;
