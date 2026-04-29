@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, FileText, ExternalLink, Download, Eye, Calendar, HardDrive } from 'lucide-react';
+import { ArrowLeft, FileText, ExternalLink, Download, CheckCircle, XCircle, Calendar, HardDrive, User, Mail, Phone, Building2, MapPin, AlertCircle } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import { Card, Badge, Button } from '@/components/ui';
 import { adminApi, type VendorDetail } from '@/lib/api';
@@ -25,12 +25,10 @@ export default function VendorDocumentsPage() {
 
   const [vendor, setVendor] = useState<VendorDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mutating, setMutating] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadVendor();
-  }, [vendorId]);
 
   const loadVendor = async () => {
     setLoading(true);
@@ -42,6 +40,42 @@ export default function VendorDocumentsPage() {
       setErr(e instanceof Error ? e.message : 'Failed to load vendor');
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (vendorId) loadVendor();
+  }, [vendorId]);
+
+  const handleApprove = async () => {
+    if (!vendor) return;
+    setMutating(true);
+    try {
+      await adminApi.approveVendor(vendor.id);
+      await loadVendor();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to approve');
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!vendor) return;
+    if (!rejectReason.trim()) {
+      alert('Please provide a rejection reason');
+      return;
+    }
+    setMutating(true);
+    try {
+      await adminApi.rejectVendor(vendor.id, rejectReason);
+      setShowRejectModal(false);
+      setRejectReason('');
+      await loadVendor();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Failed to reject');
+    } finally {
+      setMutating(false);
     }
   };
 
@@ -58,8 +92,6 @@ export default function VendorDocumentsPage() {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
@@ -94,12 +126,16 @@ export default function VendorDocumentsPage() {
       ]
     : [];
 
+  const uploadedCount = documents.filter(d => d.doc?.url).length;
+  const requiredDocsUploaded = documents.filter(d => d.requirement === 'required' && d.doc?.url).length;
+  const canApprove = vendor?.kycStatus !== 'approved' && requiredDocsUploaded >= 2;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading documents...</p>
+          <p className="text-muted-foreground">Loading vendor details...</p>
         </div>
       </div>
     );
@@ -109,9 +145,10 @@ export default function VendorDocumentsPage() {
     return (
       <div className="flex items-center justify-center h-screen">
         <Card className="p-8 text-center max-w-md">
-          <h2 className="text-xl font-bold text-foreground mb-2">Error Loading Documents</h2>
+          <AlertCircle size={48} className="mx-auto mb-4 text-destructive" />
+          <h2 className="text-xl font-bold text-foreground mb-2">Error Loading Vendor</h2>
           <p className="text-muted-foreground mb-4">{err || 'Vendor not found'}</p>
-          <Button onClick={() => router.back()}>Go Back</Button>
+          <Button onClick={() => router.push('/vendors')}>Back to Vendors</Button>
         </Card>
       </div>
     );
@@ -120,28 +157,37 @@ export default function VendorDocumentsPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-card/80 backdrop-blur-lg border-b border-border">
+      <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-lg border-b border-border shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.back()}
+                onClick={() => router.push('/vendors')}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
               >
                 <ArrowLeft size={20} className="text-foreground" />
               </button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">KYC Documents</h1>
-                <p className="text-sm text-muted-foreground">
-                  {vendor.name} · {vendor.businessName}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+                  {vendor.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-foreground">{vendor.name}</h1>
+                  <p className="text-sm text-muted-foreground">{vendor.businessName}</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge tone={vendor.kycStatus === 'approved' ? 'success' : vendor.kycStatus === 'rejected' ? 'error' : 'warning'}>
+            <div className="flex items-center gap-3">
+              <Badge 
+                tone={vendor.kycStatus === 'approved' ? 'success' : vendor.kycStatus === 'rejected' ? 'error' : 'warning'}
+                className="text-sm px-3 py-1"
+              >
                 KYC: {vendor.kycStatus}
               </Badge>
-              <Badge tone={vendor.accountStatus === 'active' ? 'success' : 'warning'}>
+              <Badge 
+                tone={vendor.accountStatus === 'active' ? 'success' : 'warning'}
+                className="text-sm px-3 py-1"
+              >
                 Account: {vendor.accountStatus}
               </Badge>
             </div>
@@ -151,130 +197,253 @@ export default function VendorDocumentsPage() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Document List */}
-          <div className="lg:col-span-1 space-y-4">
-            <h2 className="text-lg font-bold text-foreground">Documents ({documents.filter(d => d.doc?.url).length}/4)</h2>
-            
+        
+        {/* Vendor Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Mail size={20} className="text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Email</p>
+                <p className="text-sm font-semibold text-foreground truncate">{vendor.email}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Phone size={20} className="text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Phone</p>
+                <p className="text-sm font-semibold text-foreground">{vendor.phone || '—'}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+                <Building2 size={20} className="text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Business</p>
+                <p className="text-sm font-semibold text-foreground">{vendor.businessName}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Business Details */}
+        {vendor.businessDescription && (
+          <Card className="p-4 mb-6">
+            <h3 className="text-sm font-semibold text-foreground mb-2">Business Description</h3>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{vendor.businessDescription}</p>
+          </Card>
+        )}
+
+        {/* Documents Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-foreground">
+              KYC Documents ({uploadedCount}/4)
+            </h2>
+            <div className="flex items-center gap-2">
+              {requiredDocsUploaded < 2 && (
+                <Badge tone="error" className="text-xs">
+                  Missing required documents
+                </Badge>
+              )}
+              {requiredDocsUploaded >= 2 && vendor.kycStatus !== 'approved' && (
+                <Badge tone="success" className="text-xs">
+                  Ready for review
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {documents.map((doc) => {
               const hasFile = !!(doc.doc?.url);
-              const isSelected = selectedDoc === doc.key;
-              const badgeCls =
-                doc.requirement === 'required'
-                  ? 'bg-red-100 text-red-700 border-red-200'
-                  : doc.requirement === 'optional'
-                  ? 'bg-secondary text-muted-foreground border-border'
-                  : 'bg-green-100 text-green-700 border-green-200';
-
+              const isImage = doc.doc?.mimeType?.startsWith('image/');
+              
               return (
-                <Card
-                  key={doc.key}
-                  className={`p-4 cursor-pointer transition-all ${
-                    isSelected ? 'ring-2 ring-primary' : 'hover:border-primary/50'
-                  } ${!hasFile ? 'opacity-60' : ''}`}
-                  onClick={() => hasFile && setSelectedDoc(doc.key)}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                      hasFile ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
-                    }`}>
-                      <FileText size={20} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-semibold text-foreground">{doc.label}</p>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${badgeCls}`}>
-                          {doc.requirement}
-                        </span>
-                      </div>
-                      {hasFile ? (
-                        <>
-                          <p className="text-xs text-foreground/80 truncate">{doc.doc!.filename}</p>
-                          <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <HardDrive size={12} />
-                              {formatBytes(doc.doc!.size)}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar size={12} />
-                              {formatDate(doc.doc!.uploadedAt)}
+                <Card key={doc.key} className={`overflow-hidden ${!hasFile ? 'opacity-60' : ''}`}>
+                  {/* Document Header */}
+                  <div className="p-4 border-b border-border bg-secondary/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          hasFile ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
+                        }`}>
+                          <FileText size={20} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">{doc.label}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                              doc.requirement === 'required'
+                                ? 'bg-red-100 text-red-700 border border-red-200'
+                                : doc.requirement === 'optional'
+                                ? 'bg-secondary text-muted-foreground border border-border'
+                                : 'bg-green-100 text-green-700 border border-green-200'
+                            }`}>
+                              {doc.requirement}
                             </span>
                           </div>
-                        </>
-                      ) : (
-                        <p className="text-xs text-muted-foreground mt-1">No file uploaded</p>
+                        </div>
+                      </div>
+                      {hasFile && (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={doc.doc!.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                            title="Open in new tab"
+                          >
+                            <ExternalLink size={18} />
+                          </a>
+                          <a
+                            href={doc.doc!.url}
+                            download={doc.doc!.filename}
+                            className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                            title="Download"
+                          >
+                            <Download size={18} />
+                          </a>
+                        </div>
                       )}
                     </div>
                   </div>
+
+                  {/* Document Preview */}
+                  {hasFile ? (
+                    <div>
+                      {/* File Info */}
+                      <div className="px-4 py-2 bg-secondary/20 flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1 truncate max-w-[150px]">
+                          <FileText size={12} />
+                          {doc.doc!.filename}
+                        </span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <HardDrive size={12} />
+                          {formatBytes(doc.doc!.size)}
+                        </span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Calendar size={12} />
+                          {formatDate(doc.doc!.uploadedAt)}
+                        </span>
+                      </div>
+                      
+                      {/* Preview Area - Show embedded viewer for all docs */}
+                      <div className="bg-white min-h-[300px] max-h-[400px] overflow-hidden">
+                        {isImage ? (
+                          <img
+                            src={doc.doc!.url}
+                            alt={doc.label}
+                            className="w-full h-full object-contain"
+                            style={{ maxHeight: '400px' }}
+                          />
+                        ) : (
+                          <iframe
+                            src={doc.doc!.url}
+                            className="w-full h-full border-0"
+                            style={{ height: '400px' }}
+                            title={`${doc.label} Preview`}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="min-h-[200px] flex items-center justify-center bg-secondary/10">
+                      <div className="text-center">
+                        <FileText size={40} className="mx-auto mb-2 text-muted-foreground/50" />
+                        <p className="text-sm text-muted-foreground">No document uploaded</p>
+                      </div>
+                    </div>
+                  )}
                 </Card>
               );
             })}
           </div>
-
-          {/* PDF Viewer */}
-          <div className="lg:col-span-2">
-            {selectedDoc ? (
-              <Card className="h-[calc(100vh-200px)] flex flex-col">
-                {/* Viewer Header */}
-                <div className="p-4 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                      <Eye size={20} className="text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground">
-                        {documents.find(d => d.key === selectedDoc)?.label}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">
-                        {documents.find(d => d.key === selectedDoc)?.doc?.filename}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={documents.find(d => d.key === selectedDoc)?.doc?.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-secondary text-secondary-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors"
-                    >
-                      <ExternalLink size={16} />
-                      Open in Tab
-                    </a>
-                    <a
-                      href={documents.find(d => d.key === selectedDoc)?.doc?.url}
-                      download
-                      className="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-                    >
-                      <Download size={16} />
-                      Download
-                    </a>
-                  </div>
-                </div>
-
-                {/* PDF Preview */}
-                <div className="flex-1 bg-white rounded-b-lg overflow-hidden">
-                  <iframe
-                    src={documents.find(d => d.key === selectedDoc)?.doc?.url}
-                    className="w-full h-full border-0"
-                    title={`${documents.find(d => d.key === selectedDoc)?.label} Preview`}
-                  />
-                </div>
-              </Card>
-            ) : (
-              <Card className="h-[calc(100vh-200px)] flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
-                    <FileText size={40} className="text-muted-foreground" />
-                  </div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">Select a Document</h3>
-                  <p className="text-muted-foreground max-w-md">
-                    Click on any document from the list to preview it here. You can view, download, or open it in a new tab.
-                  </p>
-                </div>
-              </Card>
-            )}
-          </div>
         </div>
+
+        {/* Action Buttons */}
+        {vendor.kycStatus !== 'approved' && (
+          <Card className="p-6 bg-gradient-to-r from-primary/5 to-transparent border-primary/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-foreground mb-1">
+                  Review Decision
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {requiredDocsUploaded >= 2
+                    ? 'Required documents are uploaded. You can approve or reject this vendor.'
+                    : 'Missing required documents. Please ask vendor to upload PAN and Bank Proof.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  className="h-12 px-6"
+                  onClick={() => setShowRejectModal(true)}
+                  disabled={mutating || vendor.kycStatus === 'rejected'}
+                >
+                  <XCircle size={18} className="mr-2" />
+                  Reject
+                </Button>
+                <Button
+                  className="h-12 px-6 bg-green-600 hover:bg-green-700"
+                  onClick={handleApprove}
+                  disabled={mutating || !canApprove || vendor.kycStatus === 'approved'}
+                >
+                  <CheckCircle size={18} className="mr-2" />
+                  Approve Vendor
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Rejection Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <Card className="w-full max-w-lg p-6">
+              <h3 className="text-lg font-bold text-foreground mb-2">Reject Vendor</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Please provide a reason for rejection. The vendor will be notified via email and in-app notification.
+              </p>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g., PAN card is illegible. Please upload a clearer copy."
+                className="w-full h-32 px-3 py-2 text-sm bg-card border border-input rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-4"
+              />
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectReason('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleReject}
+                  disabled={mutating}
+                >
+                  {mutating ? 'Rejecting...' : 'Confirm Rejection'}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
