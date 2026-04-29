@@ -116,10 +116,19 @@ function DocSlotRow({
 // ── Full KYC section: 4 slots shown together ──────────────────────────
 function VendorKycSection({ vendor }: { vendor: VendorDetail }) {
   const docs = vendor.kycDocuments || {};
-  const panDoc = docs.pan && docs.pan.url ? docs.pan : vendor.kycDocument || null;
+  const panDoc = docs.pan?.url ? docs.pan : vendor.kycDocument?.url ? vendor.kycDocument : null;
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">KYC Documents</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">KYC Documents</p>
+        <a
+          href={`/vendors/${vendor.id}/documents`}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity"
+        >
+          <ExternalLink size={12} />
+          View & Approve
+        </a>
+      </div>
       <DocSlotRow label="PAN Card" requirement="required" doc={panDoc} vendorId={vendor.id} />
       <DocSlotRow label="Aadhaar Card" requirement="optional" doc={docs.aadhaar} vendorId={vendor.id} />
       <DocSlotRow label="Bank Proof" requirement="required" doc={docs.bankProof} vendorId={vendor.id} />
