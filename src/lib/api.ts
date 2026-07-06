@@ -4,8 +4,9 @@
 // For production, swap to a Bearer JWT flow.
 // ────────────────────────────────────────────────────────────────────────────
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002/api/admin';
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3002/api/admin'
+).trim();
 
 const ADMIN_TOKEN =
   process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'urbanav-admin-dev-token';
